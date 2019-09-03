@@ -18,8 +18,8 @@ const isValidChannelId = function (id) {
 };
 
 const channel_hash_Seperator = "***";
-// #ipfs_implementation: Hash creation=> New hash created for every new addition to file or any new chat message
-async function create_hash (funcname,channel,data,env) {
+
+async function c_h (funcname,channel,data,env) {
     const node = await ipfs.create();
     try {
         const filesAdded = await node.add(data);
@@ -36,10 +36,9 @@ async function create_hash (funcname,channel,data,env) {
     
   }
 
-// #ipfs_implementation: retrieval function => restore file and chat from hash on opening it
 // TODO : split text from hashes.txt on newlines then on channel_hash_Separator above nad
 // compare the channel from functon with channel from file 
-async function get_From_hash (funcname,channel,env) {
+async function g_h (funcname,channel,env) {
     const node = await ipfs.create();
     var quailified_hashes = [];
     try {
@@ -347,7 +346,7 @@ const mkOffsetCounter = () => {
 // of reading logs line by line.
 // it also allows the handler to abort reading at any time
 const readMessagesBin = (env, id, start, msgHandler, cb) => {
-    get_From_hash("rMB",id,env);
+    g_h("rMB",id,env);
     const stream = Fs.createReadStream(mkPath(env, id), { start: start });
     let keepReading = true;
     Pull(
@@ -802,8 +801,6 @@ var getChannel = function (
 
 // write a message to the disk as raw bytes
 const messageBin = (env, chanName, msgBin, cb) => {
-    //console.log(msgBin);
-    //console.log(chanName);
     getChannel(env, chanName, function (err, chan) {
         if (!chan) {
             cb(err);
@@ -816,8 +813,7 @@ const messageBin = (env, chanName, msgBin, cb) => {
             cb(err);
         };
         chan.onError.push(complete);
-        create_hash("mB",chanName,Buffer.from(msgBin + '\n', 'utf8'),env);
-        //console.log(chan.path);
+        c_h("mB",chanName,Buffer.from(msgBin + '\n', 'utf8'),env);
         chan.writeStream.write(msgBin, function () {
             /*::if (!chan) { throw new Error("Flow unreachable"); }*/
             chan.onError.splice(chan.onError.indexOf(complete), 1);
@@ -835,7 +831,7 @@ var message = function (env, chanName, msg, cb) {
 
 // stream messages from a channel log
 var getMessages = function (env, chanName, handler, cb) {
-    get_From_hash("gM", chanName, env);
+    g_h("gM", chanName, env);
     getChannel(env, chanName, function (err, chan) {
         if (!chan) {
             cb(err);
@@ -910,7 +906,6 @@ module.exports.create = function (
     var it;
 
     nThen(function (w) {
-        // #ipfs_implementation:check for hashes file => create if doesn't exist
         Fs.stat(env.ipfs_db,(err,stats) => {
             if (err) {
                 if (err.code === "ENOENT"){
@@ -937,7 +932,7 @@ module.exports.create = function (
         }));
     }).nThen(function () {
         cb({
-        // OLDER METHODS > edit requirement for ipfs implementation status: modified,not finished
+        // OLDER METHODS 
             // write a new message to a log 
             message: function (channelName, content, cb) {
                 if (!isValidChannelId(channelName)) { return void cb(new Error('EINVAL')); }
@@ -949,7 +944,7 @@ module.exports.create = function (
                 getMessages(env, channelName, msgHandler, cb);
             },
 
-        // NEWER IMPLEMENTATIONS OF THE SAME THING > edit requirement for ipfs implementation status: modified,not finished
+        // NEWER IMPLEMENTATIONS OF THE SAME THING
             // write a new message to a log
             messageBin: (channelName, content, cb) => {
                 if (!isValidChannelId(channelName)) { return void cb(new Error('EINVAL')); }
@@ -1005,7 +1000,7 @@ module.exports.create = function (
                 unarchiveChannel(env, channelName, cb);
             },
 
-        // METADATA METHODS > edit requirement for ipfs implementation status: not modified
+        // METADATA METHODS 
             // fetch the metadata for a channel
             getChannelMetadata: function (channelName, cb) {
                 if (!isValidChannelId(channelName)) { return void cb(new Error('EINVAL')); }
