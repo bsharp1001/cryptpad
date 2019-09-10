@@ -2,10 +2,13 @@
 /* jshint esversion: 6 */
 /* global Buffer */
 var Fs = require("fs");
+const async = require("async");
 const ipfs = require("ipfs");
+const mfs = require("ipfs-mfs");
 var Fse = require("fs-extra");
 var Path = require("path");
 var nThen = require("nthen");
+var Readable = require('stream').Readable;
 var Semaphore = require("saferphore");
 var Once = require("../lib/once");
 const ToPull = require('stream-to-pull-stream');
@@ -16,33 +19,93 @@ const isValidChannelId = function (id) {
         id.length >= 32 && id.length < 50 &&
         /^[a-zA-Z0-9=+-]*$/.test(id);
 };
+const node = new ipfs({start:false});
+node.on('ready', function (){
+    node.start();
+})
+/* no use for it any more :*/ const channel_hash_Seperator = "***";
+// #ipfs_implementation: Hash creation => New hash created for every new addition to file or any new chat message
+function for_loop (path){
+    var msgs = [];
+    Fs.readFile(path,'utf8', async function (err,data){
+        //console.log(data);
+        var hashes = data.split('\n');
+        for (let hash=0; hash< hashes.length; hash++) {
+            if (hashes[hash].match(/[a-zA-Z0-9]/)){
+            //console.log("hash",hashes[hash],"endasdasd");
+            var da = await node.cat(hashes[hash]);
+            //console.log(da.toString('utf8'));
+            msgs.push(da.toString('utf8'));
+            //console.log(path,da.toString('utf8'));
+            }
+        }
+        Fs.writeFile(path,msgs.join("\n"),function (err){
+            if (err) {console.error(err);}
+            console.log("aray",msgs.join("\n"));
+        });
+    });
+    
+    
+}
+var create_hash = function(funcname,data,cb) {
+  //      try {
+            //console.log(data);
+            node.add(data,function (err, added) {
+                if (err) {return cb(error);}
+                var rtrnval = added[0].hash + '\n';
+                //console.log("all done from ch",rtrnval);
+                cb(null,rtrnval);
+                return;    
+                    //msg_hash = rtrnval;
+                    //console.log("all done from ch",rtrnval);
 
-const channel_hash_Seperator = "***";
+            });
 
-async function c_h (funcname,channel,data,env) {
-    const node = await ipfs.create();
-    try {
-        const filesAdded = await node.add(data);
-        
+            //await node.start();
+            //await node.stop();
+            //console.log("create hash value: ",rtrnval);
+            //return rtrnval;        
+        /* OLDER METHOD =>changed before decrypting hashes as it is the core function due to
+        the following: (common db with all hashes but as the storage algorithm gives multiple msgs
+        (either msgs generated from editing file or speaking in chat) in each channel
+        it is better to save each channel as directory and all its hashes and metadata are saved in txt files inside its dir 
+        so as to shortcut looping and cutting) :
+         
         Fs.appendFile(env.ipfs_db,channel + channel_hash_Seperator + filesAdded[0].hash + "\r\n", 'utf8', (err) => {
             if (err) throw err;
             console.log(channel, channel_hash_Seperator, filesAdded[0].hash, "\r\n");
             node.stop();
         });
-    } catch (error){
-        console.log('error from function:',funcname, " : ", error);
-        node.stop();
-    }
-    
-  }
+        */
 
+        /* OLD METHOD => Debugging purposes : attempt to writing hashes produced to the file located by function (mkPath)
+            --- STATUS: SUCCESS
+        Fs.appendFile(mkPath(env,channel),filesAdded[0].hash + "\n", 'utf8', (err) => {
+            if (err) throw err;
+            console.log(channel, channel_hash_Seperator, filesAdded[0].hash, "\n");
+            node.stop();
+        });
+        */
+        
+
+    //    } catch (error){
+           // console.log('error from function:',funcname, " : ", error);
+         //   await node.stop();
+       // }
+    
+}
+
+// #ipfs_implementation: retrieval function => restore file and chat from hash on opening it
 // TODO : split text from hashes.txt on newlines then on channel_hash_Separator above nad
 // compare the channel from functon with channel from file 
-async function g_h (funcname,channel,env) {
+///OLD FUNCTION CONSTRUCTION ==> Debugging purposes: attempt to read hashes from the storage file ---STATUS: SUCCESS but degraded due to non-usefulness
+/*
+async function get_From_hash (funcname,channel,env) {
     const node = await ipfs.create();
     var quailified_hashes = [];
     try {
-        Fs.readFile(env.ipfs_db, 'utf8', (err, data) => {
+
+        Fs.readFile(mkPath(env,channel), 'utf8', (err, data) => {
             if (err) {
                 node.stop();
                 throw console.log(err,err.code);
@@ -56,16 +119,245 @@ async function g_h (funcname,channel,env) {
             node.stop();
             console.log(data);
         });
+        node.stop();
     } catch (error){
         node.stop();
         console.log('error from function:',funcname, " : ", error);
     }
 }
+*/
+var get_From_hash_fromdata = function (data,cb) {
+                        let msgs = [];
+                        var hashes = data.split('\n');
+                        
+                            async.each(hashes,function (hash, callback){
+                                node.cat(hash, function (err, file) {
+                                if (err) {
+                                  return cb(err);
+                                }
+                                console.log("gdro",file.toString());
+                                msgs.push(file.toString());
+                                callback(err);
+                        });
+                    },function(err){
+                        console.log('alld');
+                        cb(null, msgs.join("\n"));
+                      }
+                    );
+                        
 
+}
+var ch = function (env, chanName, msg, cb) {
+    getChannel(env, chanName, function (err, chan) {
+        if (!chan) {
+            cb(err);            
+            return;
+        }
+        let called = false;
+        var complete = function (err) {
+            if (called) { return; }
+            called = true;
+            cb(err);
+        };
+        chan.onError.push(complete);
+    //var pth = mkPath(env,chanName);
+    node.add(Buffer.from(msg),function (err, added) {
+        if (err) {return cb(error);}
+        var rtrnval = added[0].hash + '\n';
+        chan.writeStream.write(rtrnval, function () {
+            if (err) {cb(err);}
+            console.log("ch");
+            chan.onError.splice(chan.onError.indexOf(complete), 1);
+            chan.atime = +new Date();
+            if (!cb) { return; }
+            complete();
+        });
+    });
+    });
+}
+var ch_md = function (env, chanName, msg, cb) {
+    console.log("ch_md");
+    var path = mkMetadataPath(env, chanName);
+    Fse.mkdirp(Path.dirname(path), PERMISSIVE, function (err) {
+        if (err && err.code !== 'EEXIST') { return void cb(err); }
+    node.add(Buffer.from(msg),function (err, added) {
+        if (err) {return cb(error);}
+        var rtrnval = added[0].hash + '\n';
+        Fs.appendFile(path,rtrnval, function (err){
+            if (err) {cb(err);}
+        })
+        cb(null);
+    });
+    });
+}
+
+var dh = function (path, msgHandler, cb) {
+    var msgs = [];
+    Fs.readFile(path,'utf8', async function (err,data){
+        //console.log(data);
+        var hashes = data.split('\n');
+        for (let hash=0; hash< hashes.length; hash++) {
+            if (hashes[hash].match(/[a-zA-Z0-9]/)){
+            //console.log("hash",hashes[hash],"endasdasd");
+            var da = await node.cat(hashes[hash]);
+            //console.log(da.toString('utf8'));
+            msgs.push(da.toString('utf8'));
+            //console.log(path,da.toString('utf8'));
+            }
+        }
+    var remainder = '';
+    //var stream = Fs.createReadStream(path, { encoding: 'utf8' });
+    const stream = new Readable;
+    stream.push(msgs.join('\n'));
+    stream.push(null);
+    var complete = function (err) {
+        var _cb = cb;
+        cb = undefined;
+        if (_cb) { _cb(err); }
+    };
+    stream.on('data', function (chunk) {
+        var lines = chunk.split('\n');
+        lines[0] = remainder + lines[0];
+        remainder = lines.pop();
+        lines.forEach(msgHandler);
+    });
+    stream.on('end', function () {
+        msgHandler(remainder);
+        complete();
+    });
+    stream.on('error', function (e) { complete(e); });
+    });
+}
+
+var dh_bin = function (env, id, start, msgHandler, cb) {
+    var msgs = [];
+    Fs.readFile(mkPath(env, id),'utf8', async function (err,data){
+        //console.log(data);
+        var hashes = data.split('\n');
+        for (let hash=0; hash< hashes.length; hash++) {
+            if (hashes[hash].match(/[a-zA-Z0-9]/)){
+            //console.log("hash",hashes[hash],"endasdasd");
+            var da = await node.cat(hashes[hash]);
+            //console.log(da.toString('utf8'));
+            msgs.push(da.toString('utf8'));
+            //console.log(path,da.toString('utf8'));
+            }
+        }
+        //const stream = Fs.createReadStream(mkPath(env, id), { start: start });
+        const stream = new Readable;
+        stream.push(msgs.join('\n'));
+        stream.push(null);
+    let keepReading = true;
+    Pull(
+        ToPull.read(stream),
+        mkBufferSplit(),
+        mkOffsetCounter(),
+        Pull.asyncMap((data, moreCb) => {
+            msgHandler(data, moreCb, () => { keepReading = false; moreCb(); });
+        }),
+        Pull.drain(() => (keepReading), (err) => {
+            cb((keepReading) ? err : undefined);
+        })
+    );
+    });
+}
+var dh_bin_md = function (Env, path, cb) {
+    var msgs = [];
+    Fs.readFile(path,'utf8', async function (err,data){
+        //console.log(data);
+        var hashes = data.split('\n');
+        for (let hash=0; hash< hashes.length; hash++) {
+            if (hashes[hash].match(/[a-zA-Z0-9]/)){
+            //console.log("hash",hashes[hash],"endasdasd");
+            var da = await node.cat(hashes[hash]);
+            //console.log(da.toString('utf8'));
+            msgs.push(da.toString('utf8'));
+            //console.log(path,da.toString('utf8'));
+            }
+        }
+        //const stream = Fs.createReadStream(mkPath(env, id), { start: start });
+        const stream = new Readable;
+        stream.push(msgs.join('\n'));
+        stream.push(null);
+        var remainder = '';
+    
+        //var stream = Fs.createReadStream(path, { encoding: 'utf8' });
+    
+    var complete = function (err, data) {
+        var _cb = cb;
+        cb = undefined;
+        if (_cb) { _cb(err, data); }
+    };
+    stream.on('data', function (chunk) {
+        if (!/\n/.test(chunk)) {
+            remainder += chunk;
+            return;
+        }
+        stream.close();
+        //#ipfs_implementation: (get_from_hash) function on (chunk.split('\n')[0])
+        var metadata = chunk.split('\n')[0];    
+        
+        var parsed = null;
+        try {
+            parsed = JSON.parse(metadata);
+            complete(undefined, parsed);
+        }
+        catch (e) {
+            console.log("getMetadataAtPath");
+            console.error(e);
+            complete('INVALID_METADATA');
+        }
+    
+});
+    stream.on('end', function () {
+        complete();
+    });
+    stream.on('error', function (e) { complete(e); });
+    });
+}
+var get_From_hash = function (path,cb) {
+    //const node = new ipfs({start:false});
+        //try {///
+                    //console.log("all done from gfh",hash.toString());
+                    if (fs.existsSync(path)) {
+                    Fs.readFile(path,'utf8', function(err,data){
+                        if (err) {return cb(err);}
+                        console.log('gfh:',path,data);
+                        let msgs = [];
+                        var hashes = data.split('\n');
+                        hashes.forEach( function (hash){
+                            node.cat(hash, function (err, file) {
+                                if (err) {
+                                  return cb(err);
+                                }
+                                msgs.push(file.toString('utf8'));
+                        });
+                    });
+                        //decryptd_hash_g = decryptd_Hash.toString();
+                        //console.log("all done from gfh");
+                        var dh = msgs.join("\n");
+                        cb(null, dh);
+                      });
+                    } else {
+                        console.log("file not yet created");
+                    }
+                  
+             
+            //await node.start();
+            
+            //await node.stop();
+            //console.log(decryptd_Hash.toString());
+            //return decryptd_Hash.toString();
+       /* } catch (error){
+            node.on('stop', error => {
+                console.log('error from function:', " : ", error,'\n',hash);
+              });
+        }*/
+}
 // 511 -> octal 777
 // read, write, execute permissions flag
 const PERMISSIVE = 511;
-
+/* original version
 var mkPath = function (env, channelId) {
     return Path.join(env.root, channelId.slice(0, 2), channelId) + '.ndjson';
 };
@@ -80,6 +372,25 @@ var mkMetadataPath = function (env, channelId) {
 
 var mkArchiveMetadataPath = function (env, channelId) {
     return Path.join(env.archiveRoot, 'datastore', channelId.slice(0, 2), channelId) + '.metadata.ndjson';
+};
+
+*/
+
+// ipfs version
+var mkPath = function (env, channelId) { //ipfs_edition 
+    return Path.join(env.root, channelId, 'data.txt');
+};
+
+var mkArchivePath = function (env, channelId) {
+    return Path.join(env.archiveRoot, 'datastore', channelId, 'data.txt');
+};
+
+var mkMetadataPath = function (env, channelId) { //ipfs_edition
+    return Path.join(env.root, channelId, 'metadata.txt');
+};
+
+var mkArchiveMetadataPath = function (env, channelId) {
+    return Path.join(env.archiveRoot, 'datastore', channelId, 'metadata.txt');
 };
 
 // pass in the path so we can reuse the same function for archived files
@@ -101,6 +412,11 @@ var channelExists = function (filepath, cb) {
 var getMetadataAtPath = function (Env, path, cb) {
     var remainder = '';
     var stream = Fs.createReadStream(path, { encoding: 'utf8' });
+    //var stream = streamr.Readable();
+    // get_From_hash(path, function (err,res){
+     //   stream.push(res);
+       // console.log(res);
+    //});
     var complete = function (err, data) {
         var _cb = cb;
         cb = undefined;
@@ -112,8 +428,9 @@ var getMetadataAtPath = function (Env, path, cb) {
             return;
         }
         stream.close();
-        var metadata = chunk.split('\n')[0];
-
+        //#ipfs_implementation: (get_from_hash) function on (chunk.split('\n')[0])
+        var metadata = chunk.split('\n')[0];    
+        
         var parsed = null;
         try {
             parsed = JSON.parse(metadata);
@@ -124,7 +441,8 @@ var getMetadataAtPath = function (Env, path, cb) {
             console.error(e);
             complete('INVALID_METADATA');
         }
-    });
+    
+});
     stream.on('end', function () {
         complete();
     });
@@ -146,7 +464,8 @@ var closeChannel = function (env, channelName, cb) {
 // truncates a file to the end of its metadata line
 var clearChannel = function (env, channelId, cb) {
     var path = mkPath(env, channelId);
-    getMetadataAtPath(env, path, function (e, metadata) {
+    //getMetadataAtPath(env, path, function (e, metadata) {
+    dh_bin_md(env, path, function (e, metadata) {
         if (e) { return cb(new Error(e)); }
         if (!metadata) {
             return void Fs.truncate(path, 0, function (err) {
@@ -177,19 +496,61 @@ var clearChannel = function (env, channelId, cb) {
     notably doesn't provide a means of aborting if you finish early
 */
 var readMessages = function (path, msgHandler, cb) {
+    console.log("rm");
     var remainder = '';
     var stream = Fs.createReadStream(path, { encoding: 'utf8' });
+    //var stream = streamr.Readable();
+   
+    //console.log(stream);
     var complete = function (err) {
         var _cb = cb;
         cb = undefined;
         if (_cb) { _cb(err); }
     };
     stream.on('data', function (chunk) {
+        
+        
         var lines = chunk.split('\n');
+        
+        //#ipfs_implementation: for loop to get data from hashes
+       /* for (let line = 0; line < lines.length; line++) {
+            if (lines[line] !== '' && lines[line] !== ' ' && lines[line] !== '\n'){
+                try {
+                    const node = new ipfs({start:false});
+                    node.on('ready', () => {
+                        node.start( error => {
+                            if (error) {
+                              return console.error('Node failed to start!', error);
+                            } ///
+                            //console.log("all done from gfh",hash.toString());
+                            node.cat(lines[line].toString(), function (err, file) {
+                                if (err) {
+                                  throw err
+                                }
+                                const decryptd_Hash = file.toString('utf8');
+                                node.stop( error => {
+                                    if (error) {
+                                      return console.error('Node failed to start!', error);
+                                    }
+                                    decryptd_hash_g = decryptd_Hash.toString();
+                                    //console.log("all done from gfh");
+                                    lines[line] = decryptd_Hash;
+                                    console.log("line",line ,lines[line]);
+                                  });
+                              });
+                          });
+                     });
+                } catch (e) {
+                    console.log("error from rm :", e.msg);
+                }
+            }
+        }*/
+        //end of implementation
+
         lines[0] = remainder + lines[0];
         remainder = lines.pop();
         lines.forEach(msgHandler);
-    });
+});
     stream.on('end', function () {
         msgHandler(remainder);
         complete();
@@ -206,13 +567,15 @@ var getChannelMetadata = function (Env, channelId, cb) {
     var path = mkPath(Env, channelId);
 
     // gets metadata embedded in a file
-    getMetadataAtPath(Env, path, cb);
+    // getMetadataAtPath(Env, path, cb);
+    dh_bin_md(Env, path, cb);
 };
 
 // low level method for getting just the dedicated metadata channel
 var getDedicatedMetadata = function (env, channelId, handler, cb) {
     var metadataPath = mkMetadataPath(env, channelId);
-    readMessages(metadataPath, function (line) {
+    //readMessages(metadataPath, function (line) {
+    dh(metadataPath, function (line) {
         if (!line) { return; }
         try {
             var parsed = JSON.parse(line);
@@ -282,12 +645,21 @@ How to proceed
 //  writeMetadata appends to the dedicated log of metadata amendments
 var writeMetadata = function (env, channelId, data, cb) {
     var path = mkMetadataPath(env, channelId);
-
+    console.log("md");
     Fse.mkdirp(Path.dirname(path), PERMISSIVE, function (err) {
         if (err && err.code !== 'EEXIST') { return void cb(err); }
 
         // TODO see if we can make this any faster by using something other than appendFile
-        Fs.appendFile(path, data + '\n', cb);
+        //#ipfs_implementation: (create_hash) function on [data + '\n']
+            create_hash("wMd", Buffer.from(data + '\n'), function (err,res){
+                if (err) { return console.log(err);
+                }
+                Fs.appendFile(path, res, function (err){
+                    if (err) {throw err;}
+                    console.log("from md",res);
+                });
+            });
+ 
     });
 };
 
@@ -314,7 +686,9 @@ const mkBufferSplit = () => {
                         remainder = remainder ? Buffer.concat([remainder, data]) : data;
                         break;
                     }
+                    //#Ipfs_implementation: (get_from_hash) function on [data.slice(0, offset)]
                     let subArray = data.slice(0, offset);
+
                     if (remainder) {
                         subArray = Buffer.concat([remainder, subArray]);
                         remainder = null;
@@ -346,8 +720,20 @@ const mkOffsetCounter = () => {
 // of reading logs line by line.
 // it also allows the handler to abort reading at any time
 const readMessagesBin = (env, id, start, msgHandler, cb) => {
-    g_h("rMB",id,env);
+    console.log("rMB");
+    //console.log(mkPath(env, id));
+    //get_From_hash("rMB",id,env);
+    //for_loop(mkPath(env, id));
     const stream = Fs.createReadStream(mkPath(env, id), { start: start });
+    //var stream = streamr.Readable();
+    //if (fs.existsSync(mkPath(env, id))) {
+    //console.log(fs.existsSync(mkPath(env, id)));
+    //get_From_hash(mkPath(env, id), function (err,dh){
+        //if (err) {console.log(err);}
+        //stream.push(dh);
+        //console.log("result:",dh);
+    //});
+    //console.log(stream);
     let keepReading = true;
     Pull(
         ToPull.read(stream),
@@ -360,6 +746,7 @@ const readMessagesBin = (env, id, start, msgHandler, cb) => {
             cb((keepReading) ? err : undefined);
         })
     );
+
 };
 
 // check if a file exists at $path
@@ -457,6 +844,7 @@ var removeArchivedChannel = function (env, channelName, cb) {
 
 // TODO implement a method of removing metadata that doesn't have a corresponding channel
 var listChannels = function (root, handler, cb) {
+    /* #ipfs_implementation: commented all this function ==> reason : no particular use.. atleast from my point of view
     // do twenty things at a time
     var sema = Semaphore.create(20);
 
@@ -487,6 +875,7 @@ var listChannels = function (root, handler, cb) {
 
                     list.forEach(function (item) {
                         // ignore hidden files
+                        
                         if (/^\./.test(item)) { return; }
                         // ignore anything that isn't channel or metadata
                         if (!/^[0-9a-fA-F]{32}(\.metadata?)*\.ndjson$/.test(item)) {
@@ -529,7 +918,7 @@ var listChannels = function (root, handler, cb) {
         wait();
     }).nThen(function () {
         cb();
-    });
+    }); */
 };
 
 // move a channel's log file from its current location
@@ -801,9 +1190,11 @@ var getChannel = function (
 
 // write a message to the disk as raw bytes
 const messageBin = (env, chanName, msgBin, cb) => {
+    console.log("mB started");
+    console.log(chanName);
     getChannel(env, chanName, function (err, chan) {
         if (!chan) {
-            cb(err);
+            cb(err);            
             return;
         }
         let called = false;
@@ -813,32 +1204,71 @@ const messageBin = (env, chanName, msgBin, cb) => {
             cb(err);
         };
         chan.onError.push(complete);
-        c_h("mB",chanName,Buffer.from(msgBin + '\n', 'utf8'),env);
-        chan.writeStream.write(msgBin, function () {
-            /*::if (!chan) { throw new Error("Flow unreachable"); }*/
-            chan.onError.splice(chan.onError.indexOf(complete), 1);
-            chan.atime = +new Date();
-            if (!cb) { return; }
-            complete();
-        });
+        //#ipfs_implenetation
+        //var mssg_hash ='';
+        //try {
+            //create_hash("mB", Buffer.from(msgBin + '\n'), function(er,hsh) {
+                //if (er) {
+                //    console.error("error from mb :",er);
+                //}// else {
+                   //mssg_hash = hsh;
+                    //console.log("res;",mssg_hash);
+                    //console.log("ooo");
+                    //console.log(hsh);
+                
+            
+            //if (mssg_hash == undefined){ mssg_hash = '';}
+            //console.log("nooo errors from mb :", msg_hash);
+       // } catch (e) {
+            //console.log("error from mb :", e, create_hash("mB", Buffer.from(msgBin + '\n')));
+        //}
+        //console.log(msg_hash);
+        //console.log(chan.path);
+        //newer: #ipfs_implenetation ==> 
+          //  Fs.appendFile(chan.path,msg_hash, function(err,result){
+            //    con
+             //   if (err) {return;}
+            //});
+        //#ipfs_implenetation ==> the line below : msg_hash was originally msgBin
+            chan.writeStream.write('', function () {
+                create_hash("mB", Buffer.from(msgBin + '\n'), function(er,hsh) {
+                    if (er) {return console.log(er);
+                    }
+                    chan.writeStream.write(hsh);
+                     
+                //console.log("nooo errors from mb :", create_hash("mB", Buffer.from(msgBin + '\n')));
+                /*::if (!chan) { throw new Error("Flow unreachable"); }*/
+                chan.onError.splice(chan.onError.indexOf(complete), 1);
+                chan.atime = +new Date();
+                if (!cb) { return; }
+                complete();
+                console.log('from mb',hsh);
+            });        
+            });
+        //}
+      //  });
     });
 };
 
 // append a string to a channel's log as a new line
 var message = function (env, chanName, msg, cb) {
-    messageBin(env, chanName, new Buffer(msg + '\n', 'utf8'), cb);
+    console.log("m");
+    //#ipfs_implementaion: removed buffer conversion done on (msg + \n) and the debugging message above
+    messageBin(env, chanName, msg + '\n', cb);
 };
 
 // stream messages from a channel log
 var getMessages = function (env, chanName, handler, cb) {
-    g_h("gM", chanName, env);
+    //get_From_hash("gM", chanName, env);
+    console.log("gM");
     getChannel(env, chanName, function (err, chan) {
         if (!chan) {
             cb(err);
             return;
         }
         var errorState = false;
-        readMessages(chan.path, function (msg) {
+        //readMessages(chan.path, function (msg) {
+        dh(chan.path, function (msg) {
             if (!msg || errorState) { return; }
             //console.log(msg);
             try {
@@ -906,6 +1336,7 @@ module.exports.create = function (
     var it;
 
     nThen(function (w) {
+        // #ipfs_implementation:check for hashes file => create if doesn't exist
         Fs.stat(env.ipfs_db,(err,stats) => {
             if (err) {
                 if (err.code === "ENOENT"){
@@ -932,11 +1363,12 @@ module.exports.create = function (
         }));
     }).nThen(function () {
         cb({
-        // OLDER METHODS 
+        // OLDER METHODS > edit requirement for ipfs implementation status: modified,not finished
             // write a new message to a log 
             message: function (channelName, content, cb) {
                 if (!isValidChannelId(channelName)) { return void cb(new Error('EINVAL')); }
-                message(env, channelName, content, cb);
+                //message(env, channelName, content, cb);
+                ch(env,channelName, content, cb);
             },
             // iterate over all the messages in a log
             getMessages: function (channelName, msgHandler, cb) {
@@ -944,16 +1376,18 @@ module.exports.create = function (
                 getMessages(env, channelName, msgHandler, cb);
             },
 
-        // NEWER IMPLEMENTATIONS OF THE SAME THING
+        // NEWER IMPLEMENTATIONS OF THE SAME THING > edit requirement for ipfs implementation status: modified,not finished
             // write a new message to a log
             messageBin: (channelName, content, cb) => {
                 if (!isValidChannelId(channelName)) { return void cb(new Error('EINVAL')); }
-                messageBin(env, channelName, content, cb);
+                //messageBin(env, channelName, content, cb);
+                ch(env,channelName, content, cb);
             },
             // iterate over the messages in a log
             readMessagesBin: (channelName, start, asyncMsgHandler, cb) => {
                 if (!isValidChannelId(channelName)) { return void cb(new Error('EINVAL')); }
-                readMessagesBin(env, channelName, start, asyncMsgHandler, cb);
+                //readMessagesBin(env, channelName, start, asyncMsgHandler, cb);
+                dh_bin(env, channelName, start, asyncMsgHandler, cb);
             },
 
         // METHODS for deleting data
@@ -1000,7 +1434,7 @@ module.exports.create = function (
                 unarchiveChannel(env, channelName, cb);
             },
 
-        // METADATA METHODS 
+        // METADATA METHODS > edit requirement for ipfs implementation status: not modified
             // fetch the metadata for a channel
             getChannelMetadata: function (channelName, cb) {
                 if (!isValidChannelId(channelName)) { return void cb(new Error('EINVAL')); }
@@ -1020,7 +1454,8 @@ module.exports.create = function (
             // write a new line to a metadata log
             writeMetadata: function (channelName, data, cb) {
                 if (!isValidChannelId(channelName)) { return void cb(new Error('EINVAL')); }
-                writeMetadata(env, channelName, data, cb);
+                //writeMetadata(env, channelName, data, cb);
+                ch_md(env, channelName, data, cb);
             },
 
         // CHANNEL ITERATION
@@ -1047,7 +1482,8 @@ module.exports.create = function (
             },
             // write to a log file
             log: function (channelName, content, cb) {
-                message(env, channelName, content, cb);
+                //message(env, channelName, content, cb);
+                ch(env, channelName, content, cb);
             },
             // shut down the database
             shutdown: function () {
