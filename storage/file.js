@@ -15,142 +15,19 @@ const ToPull = require('stream-to-pull-stream');
 const Pull = require('pull-stream');
 
 const isValidChannelId = function (id) {
-    return typeof(id) === 'string' &&
+    return typeof (id) === 'string' &&
         id.length >= 32 && id.length < 50 &&
         /^[a-zA-Z0-9=+-]*$/.test(id);
 };
-const node = new ipfs({start:false});
-node.on('ready', function (){
+const node = new ipfs({ start: false });
+node.on('ready', function () {
     node.start();
 })
-/* no use for it any more :*/ const channel_hash_Seperator = "***";
-// #ipfs_implementation: Hash creation => New hash created for every new addition to file or any new chat message
-function for_loop (path){
-    var msgs = [];
-    Fs.readFile(path,'utf8', async function (err,data){
-        //console.log(data);
-        var hashes = data.split('\n');
-        for (let hash=0; hash< hashes.length; hash++) {
-            if (hashes[hash].match(/[a-zA-Z0-9]/)){
-            //console.log("hash",hashes[hash],"endasdasd");
-            var da = await node.cat(hashes[hash]);
-            //console.log(da.toString('utf8'));
-            msgs.push(da.toString('utf8'));
-            //console.log(path,da.toString('utf8'));
-            }
-        }
-        Fs.writeFile(path,msgs.join("\n"),function (err){
-            if (err) {console.error(err);}
-            console.log("aray",msgs.join("\n"));
-        });
-    });
-    
-    
-}
-var create_hash = function(funcname,data,cb) {
-  //      try {
-            //console.log(data);
-            node.add(data,function (err, added) {
-                if (err) {return cb(error);}
-                var rtrnval = added[0].hash + '\n';
-                //console.log("all done from ch",rtrnval);
-                cb(null,rtrnval);
-                return;    
-                    //msg_hash = rtrnval;
-                    //console.log("all done from ch",rtrnval);
 
-            });
-
-            //await node.start();
-            //await node.stop();
-            //console.log("create hash value: ",rtrnval);
-            //return rtrnval;        
-        /* OLDER METHOD =>changed before decrypting hashes as it is the core function due to
-        the following: (common db with all hashes but as the storage algorithm gives multiple msgs
-        (either msgs generated from editing file or speaking in chat) in each channel
-        it is better to save each channel as directory and all its hashes and metadata are saved in txt files inside its dir 
-        so as to shortcut looping and cutting) :
-         
-        Fs.appendFile(env.ipfs_db,channel + channel_hash_Seperator + filesAdded[0].hash + "\r\n", 'utf8', (err) => {
-            if (err) throw err;
-            console.log(channel, channel_hash_Seperator, filesAdded[0].hash, "\r\n");
-            node.stop();
-        });
-        */
-
-        /* OLD METHOD => Debugging purposes : attempt to writing hashes produced to the file located by function (mkPath)
-            --- STATUS: SUCCESS
-        Fs.appendFile(mkPath(env,channel),filesAdded[0].hash + "\n", 'utf8', (err) => {
-            if (err) throw err;
-            console.log(channel, channel_hash_Seperator, filesAdded[0].hash, "\n");
-            node.stop();
-        });
-        */
-        
-
-    //    } catch (error){
-           // console.log('error from function:',funcname, " : ", error);
-         //   await node.stop();
-       // }
-    
-}
-
-// #ipfs_implementation: retrieval function => restore file and chat from hash on opening it
-// TODO : split text from hashes.txt on newlines then on channel_hash_Separator above nad
-// compare the channel from functon with channel from file 
-///OLD FUNCTION CONSTRUCTION ==> Debugging purposes: attempt to read hashes from the storage file ---STATUS: SUCCESS but degraded due to non-usefulness
-/*
-async function get_From_hash (funcname,channel,env) {
-    const node = await ipfs.create();
-    var quailified_hashes = [];
-    try {
-
-        Fs.readFile(mkPath(env,channel), 'utf8', (err, data) => {
-            if (err) {
-                node.stop();
-                throw console.log(err,err.code);
-            }
-            data.split("\r\n")
-            .forEach(function (line){
-                if (line.split(channel_hash_Seperator)[0] === channel){
-                    quailified_hashes.push(line.split(channel_hash_Seperator)[1]);
-                }
-            })
-            node.stop();
-            console.log(data);
-        });
-        node.stop();
-    } catch (error){
-        node.stop();
-        console.log('error from function:',funcname, " : ", error);
-    }
-}
-*/
-var get_From_hash_fromdata = function (data,cb) {
-                        let msgs = [];
-                        var hashes = data.split('\n');
-                        
-                            async.each(hashes,function (hash, callback){
-                                node.cat(hash, function (err, file) {
-                                if (err) {
-                                  return cb(err);
-                                }
-                                console.log("gdro",file.toString());
-                                msgs.push(file.toString());
-                                callback(err);
-                        });
-                    },function(err){
-                        console.log('alld');
-                        cb(null, msgs.join("\n"));
-                      }
-                    );
-                        
-
-}
 var ch = function (env, chanName, msg, cb) {
     getChannel(env, chanName, function (err, chan) {
         if (!chan) {
-            cb(err);            
+            cb(err);
             return;
         }
         let called = false;
@@ -160,93 +37,137 @@ var ch = function (env, chanName, msg, cb) {
             cb(err);
         };
         chan.onError.push(complete);
-    //var pth = mkPath(env,chanName);
-    node.add(Buffer.from(msg),function (err, added) {
-        if (err) {return cb(error);}
-        var rtrnval = added[0].hash + '\n';
-        chan.writeStream.write(rtrnval, function () {
-            if (err) {cb(err);}
-            console.log("ch");
-            chan.onError.splice(chan.onError.indexOf(complete), 1);
-            chan.atime = +new Date();
-            if (!cb) { return; }
-            complete();
+        node.add(Buffer.from(msg), function (err, added) {
+            if (err) { return cb(error); }
+            var rtrnval = added[0].hash + '\n';
+            chan.writeStream.write(rtrnval, function () {
+                if (err) { cb(err); }
+
+                chan.onError.splice(chan.onError.indexOf(complete), 1);
+                chan.atime = +new Date();
+                if (!cb) { return; }
+                complete();
+            });
         });
     });
-    });
-}
+};
 var ch_md = function (env, chanName, msg, cb) {
-    console.log("ch_md");
     var path = mkMetadataPath(env, chanName);
     Fse.mkdirp(Path.dirname(path), PERMISSIVE, function (err) {
         if (err && err.code !== 'EEXIST') { return void cb(err); }
-    node.add(Buffer.from(msg),function (err, added) {
-        if (err) {return cb(error);}
-        var rtrnval = added[0].hash + '\n';
-        Fs.appendFile(path,rtrnval, function (err){
-            if (err) {cb(err);}
-        })
-        cb(null);
+        node.add(Buffer.from(msg), function (err, added) {
+            if (err) { return cb(error); }
+            var rtrnval = added[0].hash + '\n';
+            Fs.appendFile(path, rtrnval, function (err) {
+                if (err) { cb(err); }
+            })
+            cb(null);
+        });
     });
-    });
-}
+};
 
-var dh = function (path, msgHandler, cb) {
+var dh = async function (path, msgHandler, cb) {
     var msgs = [];
-    Fs.readFile(path,'utf8', async function (err,data){
-        //console.log(data);
-        var hashes = data.split('\n');
-        for (let hash=0; hash< hashes.length; hash++) {
-            if (hashes[hash].match(/[a-zA-Z0-9]/)){
-            //console.log("hash",hashes[hash],"endasdasd");
-            var da = await node.cat(hashes[hash]);
-            //console.log(da.toString('utf8'));
-            msgs.push(da.toString('utf8'));
-            //console.log(path,da.toString('utf8'));
+    var stream;
+    
+    if (Fs.existsSync(path)) {
+        Fs.readFile(path, 'utf8', async function (err, data) {
+            var hashes = data.split('\n');
+            if (hashes[0].match(/[a-zA-Z0-9]/)) {
+                for (let hash = 0; hash < hashes.length; hash++) {
+                    if (hashes[hash].match(/[a-zA-Z0-9]/)) {
+                        var file = await node.cat(hashes[hash]);
+                        if (err) {
+                             throw err;
+                        }
+                        msgs.push(file.toString('utf8'));
+                    }
+                    if (hashes.length - hash == 1) {
+                        
+                        msgs = msgs.join('\n');                        
+                        stream = new Readable;
+                        stream.push(msgs);
+                        stream.push(null);
+                        var remainder = '';
+
+                        var complete = function (err) {
+                            var _cb = cb;
+                            cb = undefined;
+                            if (_cb) { _cb(err); }
+                        };
+
+                        stream.on('data', function (chunk) {
+                            var lines = chunk.toString('utf8').split('\n');
+                            lines[0] = remainder + lines[0];
+                            remainder = lines.pop();
+                            lines.forEach(msgHandler);
+                        });
+                        stream.on('end', function () {
+                            msgHandler(remainder);
+                            complete();
+
+                        });
+
+                        stream.on('error', async function (e) { complete(e); });
+
+                    }
+                } 
+            } else {
+    
+                stream = Fs.createReadStream(path, { encoding: 'utf8' });
+                var remainder = '';
+
+                var complete = function (err) {
+                    var _cb = cb;
+                    cb = undefined;
+                    if (_cb) { _cb(err); }
+                };
+                stream.on('data', function (chunk) {
+
+                    var lines = chunk.split('\n');
+                    lines[0] = remainder + lines[0];
+                    remainder = lines.pop();
+                    lines.forEach(msgHandler);
+
+                });
+                stream.on('end', function () {
+                    msgHandler(remainder);
+                    complete();
+
+                });
+                stream.on('error', async function (e) { complete(e); });
             }
-        }
-    var remainder = '';
-    //var stream = Fs.createReadStream(path, { encoding: 'utf8' });
-    const stream = new Readable;
-    stream.push(msgs.join('\n'));
-    stream.push(null);
-    var complete = function (err) {
-        var _cb = cb;
-        cb = undefined;
-        if (_cb) { _cb(err); }
-    };
-    stream.on('data', function (chunk) {
-        var lines = chunk.split('\n');
-        lines[0] = remainder + lines[0];
-        remainder = lines.pop();
-        lines.forEach(msgHandler);
-    });
-    stream.on('end', function () {
-        msgHandler(remainder);
-        complete();
-    });
-    stream.on('error', function (e) { complete(e); });
-    });
-}
+
+        });
+    } else {
+        stream = Fs.createReadStream(path, { encoding: 'utf8' });
+        var remainder = '';
+        var complete = function (err) {
+            var _cb = cb;
+            cb = undefined;
+            if (_cb) { _cb(err); }
+        };
+        stream.on('data', function (chunk) {
+            
+            var lines = chunk.split('\n');
+            lines[0] = remainder + lines[0];
+            remainder = lines.pop();
+            lines.forEach(msgHandler);
+           
+        });
+        stream.on('end', function () {
+            msgHandler(remainder);
+            complete();
+        });
+        stream.on('error', async function (e) { complete(e); });
+    }
+};
 
 var dh_bin = function (env, id, start, msgHandler, cb) {
-    var msgs = [];
-    Fs.readFile(mkPath(env, id),'utf8', async function (err,data){
-        //console.log(data);
-        var hashes = data.split('\n');
-        for (let hash=0; hash< hashes.length; hash++) {
-            if (hashes[hash].match(/[a-zA-Z0-9]/)){
-            //console.log("hash",hashes[hash],"endasdasd");
-            var da = await node.cat(hashes[hash]);
-            //console.log(da.toString('utf8'));
-            msgs.push(da.toString('utf8'));
-            //console.log(path,da.toString('utf8'));
-            }
-        }
-        //const stream = Fs.createReadStream(mkPath(env, id), { start: start });
-        const stream = new Readable;
-        stream.push(msgs.join('\n'));
-        stream.push(null);
+
+    var remainder = '';
+    const stream = Fs.createReadStream(mkPath(env, id), { start: start });
+    
     let keepReading = true;
     Pull(
         ToPull.read(stream),
@@ -259,30 +180,11 @@ var dh_bin = function (env, id, start, msgHandler, cb) {
             cb((keepReading) ? err : undefined);
         })
     );
-    });
-}
+};
 var dh_bin_md = function (Env, path, cb) {
-    var msgs = [];
-    Fs.readFile(path,'utf8', async function (err,data){
-        //console.log(data);
-        var hashes = data.split('\n');
-        for (let hash=0; hash< hashes.length; hash++) {
-            if (hashes[hash].match(/[a-zA-Z0-9]/)){
-            //console.log("hash",hashes[hash],"endasdasd");
-            var da = await node.cat(hashes[hash]);
-            //console.log(da.toString('utf8'));
-            msgs.push(da.toString('utf8'));
-            //console.log(path,da.toString('utf8'));
-            }
-        }
-        //const stream = Fs.createReadStream(mkPath(env, id), { start: start });
-        const stream = new Readable;
-        stream.push(msgs.join('\n'));
-        stream.push(null);
-        var remainder = '';
-    
-        //var stream = Fs.createReadStream(path, { encoding: 'utf8' });
-    
+    var remainder = '';
+    var stream = Fs.createReadStream(path, { encoding: 'utf8' });
+
     var complete = function (err, data) {
         var _cb = cb;
         cb = undefined;
@@ -294,66 +196,32 @@ var dh_bin_md = function (Env, path, cb) {
             return;
         }
         stream.close();
-        //#ipfs_implementation: (get_from_hash) function on (chunk.split('\n')[0])
-        var metadata = chunk.split('\n')[0];    
-        
-        var parsed = null;
-        try {
-            parsed = JSON.parse(metadata);
-            complete(undefined, parsed);
-        }
-        catch (e) {
-            console.log("getMetadataAtPath");
-            console.error(e);
-            complete('INVALID_METADATA');
-        }
-    
-});
-    stream.on('end', function () {
+        var metadata = chunk.split('\n')[0];
+        node.cat(metadata, function (err, file) {
+            if (err) {
+                return cb(err);
+            }
+            metadata = file.toString('utf8');
+            console.log("dhbinmd", metadata, "end");
+            var parsed = null;
+            try {
+                parsed = JSON.parse(metadata);
+                complete(undefined, parsed);
+            }
+            catch (e) {
+                console.log("getMetadataAtPath");
+                console.error(e);
+                complete('INVALID_METADATA');
+            }
+        });
+    });
+    stream.on('end', async function () {
         complete();
     });
-    stream.on('error', function (e) { complete(e); });
-    });
-}
-var get_From_hash = function (path,cb) {
-    //const node = new ipfs({start:false});
-        //try {///
-                    //console.log("all done from gfh",hash.toString());
-                    if (fs.existsSync(path)) {
-                    Fs.readFile(path,'utf8', function(err,data){
-                        if (err) {return cb(err);}
-                        console.log('gfh:',path,data);
-                        let msgs = [];
-                        var hashes = data.split('\n');
-                        hashes.forEach( function (hash){
-                            node.cat(hash, function (err, file) {
-                                if (err) {
-                                  return cb(err);
-                                }
-                                msgs.push(file.toString('utf8'));
-                        });
-                    });
-                        //decryptd_hash_g = decryptd_Hash.toString();
-                        //console.log("all done from gfh");
-                        var dh = msgs.join("\n");
-                        cb(null, dh);
-                      });
-                    } else {
-                        console.log("file not yet created");
-                    }
-                  
-             
-            //await node.start();
-            
-            //await node.stop();
-            //console.log(decryptd_Hash.toString());
-            //return decryptd_Hash.toString();
-       /* } catch (error){
-            node.on('stop', error => {
-                console.log('error from function:', " : ", error,'\n',hash);
-              });
-        }*/
-}
+    stream.on('error', async function (e) { complete(e); });
+
+};
+
 // 511 -> octal 777
 // read, write, execute permissions flag
 const PERMISSIVE = 511;
@@ -414,8 +282,8 @@ var getMetadataAtPath = function (Env, path, cb) {
     var stream = Fs.createReadStream(path, { encoding: 'utf8' });
     //var stream = streamr.Readable();
     // get_From_hash(path, function (err,res){
-     //   stream.push(res);
-       // console.log(res);
+    //   stream.push(res);
+    // console.log(res);
     //});
     var complete = function (err, data) {
         var _cb = cb;
@@ -429,8 +297,8 @@ var getMetadataAtPath = function (Env, path, cb) {
         }
         stream.close();
         //#ipfs_implementation: (get_from_hash) function on (chunk.split('\n')[0])
-        var metadata = chunk.split('\n')[0];    
-        
+        var metadata = chunk.split('\n')[0];
+
         var parsed = null;
         try {
             parsed = JSON.parse(metadata);
@@ -441,8 +309,8 @@ var getMetadataAtPath = function (Env, path, cb) {
             console.error(e);
             complete('INVALID_METADATA');
         }
-    
-});
+
+    });
     stream.on('end', function () {
         complete();
     });
@@ -500,7 +368,7 @@ var readMessages = function (path, msgHandler, cb) {
     var remainder = '';
     var stream = Fs.createReadStream(path, { encoding: 'utf8' });
     //var stream = streamr.Readable();
-   
+
     //console.log(stream);
     var complete = function (err) {
         var _cb = cb;
@@ -508,49 +376,49 @@ var readMessages = function (path, msgHandler, cb) {
         if (_cb) { _cb(err); }
     };
     stream.on('data', function (chunk) {
-        
-        
+
+
         var lines = chunk.split('\n');
-        
+
         //#ipfs_implementation: for loop to get data from hashes
-       /* for (let line = 0; line < lines.length; line++) {
-            if (lines[line] !== '' && lines[line] !== ' ' && lines[line] !== '\n'){
-                try {
-                    const node = new ipfs({start:false});
-                    node.on('ready', () => {
-                        node.start( error => {
-                            if (error) {
-                              return console.error('Node failed to start!', error);
-                            } ///
-                            //console.log("all done from gfh",hash.toString());
-                            node.cat(lines[line].toString(), function (err, file) {
-                                if (err) {
-                                  throw err
-                                }
-                                const decryptd_Hash = file.toString('utf8');
-                                node.stop( error => {
-                                    if (error) {
-                                      return console.error('Node failed to start!', error);
-                                    }
-                                    decryptd_hash_g = decryptd_Hash.toString();
-                                    //console.log("all done from gfh");
-                                    lines[line] = decryptd_Hash;
-                                    console.log("line",line ,lines[line]);
-                                  });
-                              });
-                          });
-                     });
-                } catch (e) {
-                    console.log("error from rm :", e.msg);
-                }
-            }
-        }*/
+        /* for (let line = 0; line < lines.length; line++) {
+             if (lines[line] !== '' && lines[line] !== ' ' && lines[line] !== '\n'){
+                 try {
+                     const node = new ipfs({start:false});
+                     node.on('ready', () => {
+                         node.start( error => {
+                             if (error) {
+                               return console.error('Node failed to start!', error);
+                             } ///
+                             //console.log("all done from gfh",hash.toString());
+                             node.cat(lines[line].toString(), function (err, file) {
+                                 if (err) {
+                                   throw err
+                                 }
+                                 const decryptd_Hash = file.toString('utf8');
+                                 node.stop( error => {
+                                     if (error) {
+                                       return console.error('Node failed to start!', error);
+                                     }
+                                     decryptd_hash_g = decryptd_Hash.toString();
+                                     //console.log("all done from gfh");
+                                     lines[line] = decryptd_Hash;
+                                     console.log("line",line ,lines[line]);
+                                   });
+                               });
+                           });
+                      });
+                 } catch (e) {
+                     console.log("error from rm :", e.msg);
+                 }
+             }
+         }*/
         //end of implementation
 
         lines[0] = remainder + lines[0];
         remainder = lines.pop();
         lines.forEach(msgHandler);
-});
+    });
     stream.on('end', function () {
         msgHandler(remainder);
         complete();
@@ -600,21 +468,21 @@ var getDedicatedMetadata = function (env, channelId, handler, cb) {
     Requires a handler to process successive lines.
 */
 var readMetadata = function (env, channelId, handler, cb) {
-/*
-
-Possibilities
-
-    1. there is no metadata because it's an old channel
-    2. there is metadata in the first line of the channel, but nowhere else
-    3. there is metadata in the first line of the channel as well as in a dedicated log
-    4. there is no metadata in the first line of the channel. Everything is in the dedicated log
-
-How to proceed
-
-    1. load the first line of the channel and treat it as a metadata message if applicable
-    2. load the dedicated log and treat it as an update
-
-*/
+    /*
+    
+    Possibilities
+    
+        1. there is no metadata because it's an old channel
+        2. there is metadata in the first line of the channel, but nowhere else
+        3. there is metadata in the first line of the channel as well as in a dedicated log
+        4. there is no metadata in the first line of the channel. Everything is in the dedicated log
+    
+    How to proceed
+    
+        1. load the first line of the channel and treat it as a metadata message if applicable
+        2. load the dedicated log and treat it as an update
+    
+    */
 
     nThen(function (w) {
         // returns the first line of a channel, parsed...
@@ -622,11 +490,11 @@ How to proceed
             if (err) {
                 // 'INVALID_METADATA' if it can't parse
                 // stream errors if anything goes wrong at a lower level
-                    // ENOENT (no channel here)
+                // ENOENT (no channel here)
                 return void handler(err);
             }
             // disregard anything that isn't a map
-            if (!data || typeof(data) !== 'object' || Array.isArray(data)) { return; }
+            if (!data || typeof (data) !== 'object' || Array.isArray(data)) { return; }
 
             // otherwise it's good.
             handler(null, data);
@@ -651,15 +519,16 @@ var writeMetadata = function (env, channelId, data, cb) {
 
         // TODO see if we can make this any faster by using something other than appendFile
         //#ipfs_implementation: (create_hash) function on [data + '\n']
-            create_hash("wMd", Buffer.from(data + '\n'), function (err,res){
-                if (err) { return console.log(err);
-                }
-                Fs.appendFile(path, res, function (err){
-                    if (err) {throw err;}
-                    console.log("from md",res);
-                });
+        create_hash("wMd", Buffer.from(data + '\n'), function (err, res) {
+            if (err) {
+                return console.log(err);
+            }
+            Fs.appendFile(path, res, function (err) {
+                if (err) { throw err; }
+                console.log("from md", res);
             });
- 
+        });
+
     });
 };
 
@@ -680,7 +549,7 @@ const mkBufferSplit = () => {
                     return;
                 }
                 const queue = [];
-                for (;;) {
+                for (; ;) {
                     const offset = data.indexOf(NEWLINE_CHR);
                     if (offset < 0) {
                         remainder = remainder ? Buffer.concat([remainder, data]) : data;
@@ -688,7 +557,6 @@ const mkBufferSplit = () => {
                     }
                     //#Ipfs_implementation: (get_from_hash) function on [data.slice(0, offset)]
                     let subArray = data.slice(0, offset);
-
                     if (remainder) {
                         subArray = Buffer.concat([remainder, subArray]);
                         remainder = null;
@@ -696,7 +564,20 @@ const mkBufferSplit = () => {
                     queue.push(subArray);
                     data = data.slice(offset + 1);
                 }
-                cb(end, queue);
+                for (let hash = 0; hash < queue.length; hash++) {
+                    //console.log(hash);
+                    node.cat(queue[hash].toString("utf8"), function (err, file) {
+                        if (err) {
+                            return cb(err);
+                        }
+                        queue[hash] = file.toString("utf8");
+                        //console.log("loop2:",queue[hash]);
+                        if (queue.length - hash == 1) {
+                            cb(end, queue);
+                        }
+                    });
+                }
+
             });
         };
     }, Pull.flatten());
@@ -729,9 +610,9 @@ const readMessagesBin = (env, id, start, msgHandler, cb) => {
     //if (fs.existsSync(mkPath(env, id))) {
     //console.log(fs.existsSync(mkPath(env, id)));
     //get_From_hash(mkPath(env, id), function (err,dh){
-        //if (err) {console.log(err);}
-        //stream.push(dh);
-        //console.log("result:",dh);
+    //if (err) {console.log(err);}
+    //stream.push(dh);
+    //console.log("result:",dh);
     //});
     //console.log(stream);
     let keepReading = true;
@@ -771,7 +652,7 @@ var checkPath = function (path, callback) {
 };
 
 var labelError = function (label, err) {
-    return label + (err.code ? "_" +  err.code: '');
+    return label + (err.code ? "_" + err.code : '');
 };
 
 /*  removeChannel
@@ -844,7 +725,8 @@ var removeArchivedChannel = function (env, channelName, cb) {
 
 // TODO implement a method of removing metadata that doesn't have a corresponding channel
 var listChannels = function (root, handler, cb) {
-    /* #ipfs_implementation: commented all this function ==> reason : no particular use.. atleast from my point of view
+    console.log("listc");
+    /* #ipfs_implementation: commented all this function ==> reason : no particular use.. atleast from my point of view*/
     // do twenty things at a time
     var sema = Semaphore.create(20);
 
@@ -866,16 +748,16 @@ var listChannels = function (root, handler, cb) {
         var wait = w();
         dirList.forEach(function (dir) {
             sema.take(function (give) {
-    // TODO modify the asynchronous bits here to keep less in memory at any given time
-    // list a directory -> process its contents with semaphores until less than N jobs are running
-    // then list the next directory...
+                // TODO modify the asynchronous bits here to keep less in memory at any given time
+                // list a directory -> process its contents with semaphores until less than N jobs are running
+                // then list the next directory...
                 var nestedDirPath = Path.join(root, dir);
                 Fs.readdir(nestedDirPath, w(give(function (err, list) {
                     if (err) { return void handler(err); } // Is this correct?
 
                     list.forEach(function (item) {
                         // ignore hidden files
-                        
+
                         if (/^\./.test(item)) { return; }
                         // ignore anything that isn't channel or metadata
                         if (!/^[0-9a-fA-F]{32}(\.metadata?)*\.ndjson$/.test(item)) {
@@ -918,7 +800,7 @@ var listChannels = function (root, handler, cb) {
         wait();
     }).nThen(function () {
         cb();
-    }); */
+    });
 };
 
 // move a channel's log file from its current location
@@ -1048,10 +930,10 @@ var unarchiveChannel = function (env, channelName, cb) {
 var flushUnusedChannels = function (env, cb, frame) {
     var currentTime = +new Date();
 
-    var expiration = typeof(frame) === 'undefined'?  env.channelExpirationMs: frame;
+    var expiration = typeof (frame) === 'undefined' ? env.channelExpirationMs : frame;
     Object.keys(env.channels).forEach(function (chanId) {
         var chan = env.channels[chanId];
-        if (typeof(chan.atime) !== 'number') { return; }
+        if (typeof (chan.atime) !== 'number') { return; }
         if (currentTime >= expiration + chan.atime) {
             closeChannel(env, chanId, function (err) {
                 if (err) {
@@ -1138,8 +1020,8 @@ var getChannel = function (
     var channel /*:ChainPadServer_ChannelInternal_t*/ = env.channels[id] = {
         atime: +new Date(),
         writeStream: (undefined /*:any*/),
-        whenLoaded: [ callback ],
-        onError: [ ],
+        whenLoaded: [callback],
+        onError: [],
         path: path
     };
     var complete = function (err) {
@@ -1194,7 +1076,7 @@ const messageBin = (env, chanName, msgBin, cb) => {
     console.log(chanName);
     getChannel(env, chanName, function (err, chan) {
         if (!chan) {
-            cb(err);            
+            cb(err);
             return;
         }
         let called = false;
@@ -1207,46 +1089,47 @@ const messageBin = (env, chanName, msgBin, cb) => {
         //#ipfs_implenetation
         //var mssg_hash ='';
         //try {
-            //create_hash("mB", Buffer.from(msgBin + '\n'), function(er,hsh) {
-                //if (er) {
-                //    console.error("error from mb :",er);
-                //}// else {
-                   //mssg_hash = hsh;
-                    //console.log("res;",mssg_hash);
-                    //console.log("ooo");
-                    //console.log(hsh);
-                
-            
-            //if (mssg_hash == undefined){ mssg_hash = '';}
-            //console.log("nooo errors from mb :", msg_hash);
-       // } catch (e) {
-            //console.log("error from mb :", e, create_hash("mB", Buffer.from(msgBin + '\n')));
+        //create_hash("mB", Buffer.from(msgBin + '\n'), function(er,hsh) {
+        //if (er) {
+        //    console.error("error from mb :",er);
+        //}// else {
+        //mssg_hash = hsh;
+        //console.log("res;",mssg_hash);
+        //console.log("ooo");
+        //console.log(hsh);
+
+
+        //if (mssg_hash == undefined){ mssg_hash = '';}
+        //console.log("nooo errors from mb :", msg_hash);
+        // } catch (e) {
+        //console.log("error from mb :", e, create_hash("mB", Buffer.from(msgBin + '\n')));
         //}
         //console.log(msg_hash);
         //console.log(chan.path);
         //newer: #ipfs_implenetation ==> 
-          //  Fs.appendFile(chan.path,msg_hash, function(err,result){
-            //    con
-             //   if (err) {return;}
-            //});
+        //  Fs.appendFile(chan.path,msg_hash, function(err,result){
+        //    con
+        //   if (err) {return;}
+        //});
         //#ipfs_implenetation ==> the line below : msg_hash was originally msgBin
-            chan.writeStream.write('', function () {
-                create_hash("mB", Buffer.from(msgBin + '\n'), function(er,hsh) {
-                    if (er) {return console.log(er);
-                    }
-                    chan.writeStream.write(hsh);
-                     
+        chan.writeStream.write('', function () {
+            create_hash("mB", Buffer.from(msgBin + '\n'), function (er, hsh) {
+                if (er) {
+                    return console.log(er);
+                }
+                chan.writeStream.write(hsh);
+
                 //console.log("nooo errors from mb :", create_hash("mB", Buffer.from(msgBin + '\n')));
                 /*::if (!chan) { throw new Error("Flow unreachable"); }*/
                 chan.onError.splice(chan.onError.indexOf(complete), 1);
                 chan.atime = +new Date();
                 if (!cb) { return; }
                 complete();
-                console.log('from mb',hsh);
-            });        
+                console.log('from mb', hsh);
             });
+        });
         //}
-      //  });
+        //  });
     });
 };
 
@@ -1327,7 +1210,7 @@ module.exports.create = function (
         root: conf.filePath || './datastore',
         archiveRoot: conf.archivePath || './data/archive',
         retainData: conf.retainData,
-        channels: { },
+        channels: {},
         channelExpirationMs: conf.channelExpirationMs || 30000,
         verbose: conf.verbose,
         openFiles: 0,
@@ -1337,18 +1220,18 @@ module.exports.create = function (
 
     nThen(function (w) {
         // #ipfs_implementation:check for hashes file => create if doesn't exist
-        Fs.stat(env.ipfs_db,(err,stats) => {
+        Fs.stat(env.ipfs_db, (err, stats) => {
             if (err) {
-                if (err.code === "ENOENT"){
-                    Fs.appendFile(env.ipfs_db,'', 'utf8',(err) => {
+                if (err.code === "ENOENT") {
+                    Fs.appendFile(env.ipfs_db, '', 'utf8', (err) => {
                         if (err) {
-                            console.log("something is wrong: ",err);
+                            console.log("something is wrong: ", err);
                         }
                         console.log('hash db created!');
                     });
                 }
             }
-          });
+        });
         // make sure the store's directory exists
         Fse.mkdirp(env.root, PERMISSIVE, w(function (err) {
             if (err && err.code !== 'EEXIST') {
@@ -1363,12 +1246,12 @@ module.exports.create = function (
         }));
     }).nThen(function () {
         cb({
-        // OLDER METHODS > edit requirement for ipfs implementation status: modified,not finished
+            // OLDER METHODS > edit requirement for ipfs implementation status: modified,not finished
             // write a new message to a log 
             message: function (channelName, content, cb) {
                 if (!isValidChannelId(channelName)) { return void cb(new Error('EINVAL')); }
                 //message(env, channelName, content, cb);
-                ch(env,channelName, content, cb);
+                ch(env, channelName, content, cb);
             },
             // iterate over all the messages in a log
             getMessages: function (channelName, msgHandler, cb) {
@@ -1376,12 +1259,12 @@ module.exports.create = function (
                 getMessages(env, channelName, msgHandler, cb);
             },
 
-        // NEWER IMPLEMENTATIONS OF THE SAME THING > edit requirement for ipfs implementation status: modified,not finished
+            // NEWER IMPLEMENTATIONS OF THE SAME THING > edit requirement for ipfs implementation status: modified,not finished
             // write a new message to a log
             messageBin: (channelName, content, cb) => {
                 if (!isValidChannelId(channelName)) { return void cb(new Error('EINVAL')); }
                 //messageBin(env, channelName, content, cb);
-                ch(env,channelName, content, cb);
+                ch(env, channelName, content, cb);
             },
             // iterate over the messages in a log
             readMessagesBin: (channelName, start, asyncMsgHandler, cb) => {
@@ -1390,7 +1273,7 @@ module.exports.create = function (
                 dh_bin(env, channelName, start, asyncMsgHandler, cb);
             },
 
-        // METHODS for deleting data
+            // METHODS for deleting data
             // remove a channel and its associated metadata log if present
             removeChannel: function (channelName, cb) {
                 if (!isValidChannelId(channelName)) { return void cb(new Error('EINVAL')); }
@@ -1434,7 +1317,7 @@ module.exports.create = function (
                 unarchiveChannel(env, channelName, cb);
             },
 
-        // METADATA METHODS > edit requirement for ipfs implementation status: not modified
+            // METADATA METHODS > edit requirement for ipfs implementation status: not modified
             // fetch the metadata for a channel
             getChannelMetadata: function (channelName, cb) {
                 if (!isValidChannelId(channelName)) { return void cb(new Error('EINVAL')); }
@@ -1458,7 +1341,7 @@ module.exports.create = function (
                 ch_md(env, channelName, data, cb);
             },
 
-        // CHANNEL ITERATION
+            // CHANNEL ITERATION
             listChannels: function (handler, cb) {
                 listChannels(env.root, handler, cb);
             },
@@ -1470,7 +1353,7 @@ module.exports.create = function (
                 if (!isValidChannelId(channelName)) { return void cb(new Error('EINVAL')); }
                 channelBytes(env, channelName, cb);
             },
-        // OTHER DATABASE FUNCTIONALITY
+            // OTHER DATABASE FUNCTIONALITY
             // remove a particular channel from the cache
             closeChannel: function (channelName, cb) {
                 if (!isValidChannelId(channelName)) { return void cb(new Error('EINVAL')); }
