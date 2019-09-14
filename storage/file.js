@@ -4,7 +4,6 @@
 var Fs = require("fs");
 const async = require("async");
 const ipfs = require("ipfs");
-const mfs = require("ipfs-mfs");
 var Fse = require("fs-extra");
 var Path = require("path");
 var nThen = require("nthen");
