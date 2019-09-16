@@ -10,7 +10,7 @@ Encryption carried out in your web browser from the normal cryptpads`s mechanism
 
 # Installation
 
-Follow the instructions below or for summing-up just go to [the ready-made Command Board](https://github.com/bsharp1001/cryptpad/#user-content-Command-Board)
+Follow the instructions below or for summing-up just go to [the ready-made Command Board](https://github.com/bsharp1001/cryptpad/#user-content-command-board)
 
 ## Instructions
 
