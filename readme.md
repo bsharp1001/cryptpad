@@ -1,31 +1,119 @@
-[![An XWiki Labs Project](https://raw.githubusercontent.com/xwiki-labs/xwiki-labs-logo/master/projects/xwikilabs/xlabs-project.png "XWiki labs")](https://labs.xwiki.com/xwiki/bin/view/Main/WebHome)
+[![An XWiki Labs Project](https://raw.githubusercontent.com/xwiki-labs/xwiki-labs-logo/master/projects/xwikilabs/xlabs-project.png "XWiki labs")](https://labs.xwiki.com/xwiki/bin/view/Main/WebHome) : with a **#** touch
 
-![CryptPad screenshot](https://github.com/xwiki-labs/cryptpad/raw/master/screenshot.png "Pads are an easy way to collaborate")
+![CryptPad screenshot](https://github.com/xwiki-labs/cryptpad/raw/master/screenshot.png "Pads are an easy way to collaborate... and more secure with p2p decentralized storage")
 
-CryptPad is the **Zero Knowledge** realtime collaborative editor.
+CryptPad-ipfs \(CryptPad#\) is the **Zero Knowledge** realtime collaborative editor, with a simple IPFS storage mechanism made by bsharp# to make the storage more secure and with more hashing in the process.
 
-Encryption carried out in your web browser protects the data from the server, the cloud
-and the NSA. It relies on the [ChainPad] realtime engine.
+Encryption carried out in your web browser from the normal cryptpads`s mechanisms added to it IPFS encryption mechanism protects the data from the server, the cloud and the NSA. It relies on the [ChainPad] realtime engine.
 
 <!--If you'd like to know more, please read [the Whitepaper]().-->
 
 # Installation
 
-Installing CryptPad is pretty straightforward. You can read all about it in the
-[installation guide](https://github.com/xwiki-labs/cryptpad/wiki/Installation-guide).
+Follow the instructions below or for summing-up just go to [the ready-made Command Board](https://github.com/bsharp1001/cryptpad/#user-content-Command-Board)
 
-It also contains information on keeping your instance of CryptPad up to date.
+## Instructions
 
-## Current version
+Installation of this fork pretty much follows the same steps in the original Guide \(**installation steps only, not Upgrading steps.**\) [here](https://github.com/xwiki-labs/cryptpad/wiki/Installation-guide) **EXCEPT for 2 major different steps:**
 
-The most recent version and all past release notes can be found [here](https://github.com/xwiki-labs/cryptpad/releases/).
+1. Clone the repository from this fork not from the original repo:
+
+        git clone https://github.com/bsharp1001/cryptpad.git
+
+2. install jsipfs library **in CryptPad installation directory** \(assuming you have npm installed\):
+   
+        cd path/to/cryptpad
+        npm i ipfs
+
+## Command Board
+
+### 1. Pre-requisites
+
+   - git
+   - nodejs \([NVM](https://github.com/creationix/nvm) Usage recommended for managing different versions of node\)
+        -To install the default current version of node:
+
+            sudo apt-get install curl
+            curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -
+            sudo apt-get install nodejs
+
+   - npm: `sudo apt-get install npm`
+   - bower: `npm install -g bower`
+
+### 2. Cloning
+
+   - Clone the repository: 
+
+        git clone https://github.com/bsharp1001/cryptpad.git
+
+### 3. Dependencies
+
+    cd path/to/cryptpad
+    npm install
+    bower install
+`npm install ipfs` or `npm i ipfs`
+
+### 4. Adjust configuration
+
+   `cd /path/to/cryptpad/config` or if you are already in the installation directory `cd config`
+   `cp config.example.js config.js`
+
+### 5. Run CryptPad-ipfs
+
+    node server
+
+And we're done! your CryptPad should now be available at `localhost:3000`
+
+## Upgrade
+
+As we are using a fork we can't just upgrade from the original repositoiry directly as this will remove the current ipfs implementation so we will [sync our fork](https://help.github.com/en/articles/syncing-a-fork) with the original repo which we will call **upstream** from Now on.
+
+- First, check your original repo with this command `git remote -v` executed inside your repository installation directory i.e:
+  
+    `cd path/to/cryptpad` then `git remote -v`
+
+  the result will be something like this: 
+  
+        origin	https://github.com/bsharp1001/cryptpad (fetch)
+        origin	https://github.com/bsharp1001/cryptpad (push)
+
+- After checking, add the upstream \(original cryptpad repo\) with this command:
+
+        git remote add upstream https://github.com/xwiki-labs/cryptpad.git
+
+- Then check again that the upstream is successfully added to yoour local installation and that the origin and upstream exist together with the command `git remote -v` and the result will be something like this:
+  
+        origin	https://github.com/bsharp1001/cryptpad (fetch)
+        origin	https://github.com/bsharp1001/cryptpad (push)
+        upstream	https://github.com/xwiki-labs/cryptpad (fetch)
+        upstream	https://github.com/xwiki-labs/cryptpad (push)
+
+Now every time you want to check for updates you can easily do it with this command:
+
+    git pull upstream master
+
+Or with this method for people who prefer the `fetch` n `merge` method:
+
+1. Fetch the upstream:
+
+        git fetch upstream
+
+2. Checkout the local `master` branch:
+
+        git checkout master
+
+3. Merge the changes from upstream/master into your local master branch which will update your local installation without using the ipfs storage mechanism:
+
+        git merge upstream/master 
 
 ## Setup using Docker
 
+As in this Guide :
 See [Cryptpad-Docker](docs/cryptpad-docker.md) and the community wiki's [Docker](https://github.com/xwiki-labs/cryptpad/wiki/Docker) page for details on how to get up-and-running with Cryptpad in Docker.
 
 ## Setup using Ansible
 
+As in this Guide :
 See [Ansible Role for Cryptpad](https://github.com/systemli/ansible-role-cryptpad).
 
 # Security
@@ -47,7 +135,9 @@ the battery out of your computer before it spawns Agent Smith.
 
 Still there are other low-lives in the world so using CryptPad over HTTPS is probably a good idea.
 
-# Translations
+# From the Original Developers:
+
+## Translations
 
 We'd like to make it easy for more people to use encryption in their routine activities.
 As such, we've tried to make language-specific parts of CryptPad translatable. If you're
@@ -55,18 +145,18 @@ able to translate CryptPad's interface, and would like to help, please contact u
 
 You can also see [our translation guide](/customize.dist/translations/README.md).
 
-# Contacting Us
+## Contacting Us
 
 You can reach members of the CryptPad development team on [Twitter](https://twitter.com/cryptpad),
 via our [GitHub issue tracker](https://github.com/xwiki-labs/cryptpad/issues/), on our
 [Matrix channel](https://riot.im/app/#/room/#cryptpad:matrix.org), or by
 [e-mail](mailto:research@xwiki.com).
 
-# Team
+## Team
 
 CryptPad is actively developed by a team at [XWiki SAS](https://www.xwiki.com), a company that has been building Open-Source software since 2004 with contributors from around the world. Between 2015 and 2019 it was funded by a research grant from the French state through [BPI France](https://www.bpifrance.fr/). It is currently financed by [NLnet PET](https://nlnet.nl/PET/), subscribers of CryptPad.fr and donations to our [Open-Collective campaign](https://opencollective.com/cryptpad).
 
-# Contributing
+## Contributing
 
 We love Open Source and we love contribution. Learn more about [contributing](https://github.com/xwiki-labs/cryptpad/wiki/Contributor-overview). 
 
