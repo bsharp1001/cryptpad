@@ -12,7 +12,7 @@ Encryption carried out in your web browser from the normal cryptpads`s mechanism
 
 There are 2 ways of installation described here:
 
-1. [Install from the original CryptPad repo then add the storage mechanism](https://github.com/bsharp1001/cryptpad/#user-content-1-installation-from-original-repo)
+1. [Install from the original CryptPad repo then add the storage mechanism](https://github.com/bsharp1001/cryptpad/#user-content-1-installation-from-the-original-repo)
 
 2. [Install this fork directly](https://github.com/bsharp1001/cryptpad/#user-content-2-installation-from-this-fork)
 
