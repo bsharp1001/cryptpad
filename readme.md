@@ -10,9 +10,65 @@ Encryption carried out in your web browser from the normal cryptpads`s mechanism
 
 # Installation
 
+There are 2 ways of installation described here:
+
+1. [Install from the original CryptPad repo then add the storage mechanism](https://github.com/bsharp1001/cryptpad/#user-content-installation-from-original-repo)
+
+2. [Install this fork directly](https://github.com/bsharp1001/cryptpad/#user-content-installation-from-this-fork)
+
+## 1. Installation from the original Repo:
+
+follows the same steps in the original Guide [here](https://github.com/xwiki-labs/cryptpad/wiki/Installation-guide)
+or to sum it up, here are the steps with commands: 
+
+### 1. Pre-requisites
+
+   - git
+   - nodejs \([NVM](https://github.com/creationix/nvm) Usage recommended for managing different versions of node\)
+        -To install the default current version of node:
+
+            sudo apt-get install curl
+            curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -
+            sudo apt-get install nodejs
+
+   - npm: `sudo apt-get install npm`
+   - bower: `npm install -g bower`
+
+### 2. Cloning
+
+   - Clone the repository: 
+
+        git clone https://github.com/xwiki-labs/cryptpad.git
+
+### 3. Dependencies
+
+    cd path/to/cryptpad
+    npm install
+    bower install
+`npm install ipfs` or `npm i ipfs`
+
+### 4. Adjust configuration
+
+   `cd /path/to/cryptpad/config` or if you are already in the installation directory `cd config`
+   `cp config.example.js config.js`
+
+### 5. Applying the storage:
+
+- Copy the source code from this link: (https://github.com/bsharp1001/cryptpad/blob/master/storage/file.js) and save it in a file in `path/to/cryptpad/storage/yourcustomfilename.js`
+
+- Open the file `config.js` located in the folder `config` find the line `storage: './storage/file',` at the end of the file and change `file` with the custom name of your file. That's it! now:
+
+### 6. Run CryptPad-ipfs
+
+    node server
+
+And we're done! your CryptPad should now be available at `localhost:3000`
+
+## 2. Installation from this fork: 
+
 Follow the instructions below or for summing-up just go to [the ready-made Command Board](https://github.com/bsharp1001/cryptpad/#user-content-command-board)
 
-## Instructions
+### Instructions
 
 Installation of this fork pretty much follows the same steps in the original Guide \(**installation steps only, not Upgrading steps.**\) [here](https://github.com/xwiki-labs/cryptpad/wiki/Installation-guide) **EXCEPT for 2 major different steps:**
 
