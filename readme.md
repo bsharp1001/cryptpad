@@ -54,7 +54,7 @@ or to sum it up, here are the steps with commands:
 
 ### 5. Applying the storage:
 
-- Copy the source code from this link: (https://github.com/bsharp1001/cryptpad/blob/master/storage/file.js) and save it in a file in `path/to/cryptpad/storage/yourcustomfilename.js`
+- Copy the source code from this link: https://github.com/bsharp1001/cryptpad/blob/master/storage/file.js and save it in a file in `path/to/cryptpad/storage/yourcustomfilename.js`
 
 - Open the file `config.js` located in the folder `config`, find the line `storage: './storage/file',` at the end of the file and change `file` with the custom name of your file. That's it! now:
 
