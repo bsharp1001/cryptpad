@@ -64,6 +64,15 @@ or to sum it up, here are the steps with commands:
 
 And we're done! your CryptPad should now be available at `localhost:3000`
 
+### 7. Upgrade 
+
+As in the Original wiki installation Guide [here](https://github.com/xwiki-labs/cryptpad/wiki/Installation-guide#user-content-upgrading-cryptpad). Here the summed-up steps:
+
+        cd path/to/cryptpad
+        git pull
+        npm update
+        bower update
+
 ## 2. Installation from this fork: 
 
 Follow the instructions below or for summing-up just go to [the ready-made Command Board](https://github.com/bsharp1001/cryptpad/#user-content-command-board)
@@ -81,9 +90,9 @@ Installation of this fork pretty much follows the same steps in the original Gui
         cd path/to/cryptpad
         npm i ipfs
 
-## Command Board
+### Command Board
 
-### 1. Pre-requisites
+#### 1. Pre-requisites
 
    - git
    - nodejs \([NVM](https://github.com/creationix/nvm) Usage recommended for managing different versions of node\)
@@ -96,31 +105,31 @@ Installation of this fork pretty much follows the same steps in the original Gui
    - npm: `sudo apt-get install npm`
    - bower: `npm install -g bower`
 
-### 2. Cloning
+#### 2. Cloning
 
    - Clone the repository: 
 
         git clone https://github.com/bsharp1001/cryptpad.git
 
-### 3. Dependencies
+#### 3. Dependencies
 
     cd path/to/cryptpad
     npm install
     bower install
 `npm install ipfs` or `npm i ipfs`
 
-### 4. Adjust configuration
+#### 4. Adjust configuration
 
    `cd /path/to/cryptpad/config` or if you are already in the installation directory `cd config`
    `cp config.example.js config.js`
 
-### 5. Run CryptPad-ipfs
+#### 5. Run CryptPad-ipfs
 
     node server
 
 And we're done! your CryptPad should now be available at `localhost:3000`
 
-## Upgrade
+#### 6. Upgrade (if and only if installation is done from fork)
 
 As we are using a fork we can't just upgrade from the original repositoiry directly as this will remove the current ipfs implementation so we will [sync our fork](https://help.github.com/en/articles/syncing-a-fork) with the original repo which we will call **upstream** from Now on.
 
